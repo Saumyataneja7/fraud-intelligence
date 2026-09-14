@@ -1,0 +1,29 @@
+dataset:
+  name: fraud-intelligence-synthetic
+  version: "1.0.0"
+
+generation:
+  random_seed: 42
+  transactions: 100000
+  start_date: "2025-01-01"
+  end_date: "2025-12-31"
+
+fraud:
+  target_rate: 0.01
+
+  scenarios:
+    account_takeover: 0.20
+    shared_device: 0.15
+    shared_ip: 0.15
+    merchant_abuse: 0.15
+    velocity_attack: 0.15
+    geo_anomaly: 0.05
+    fraud_ring: 0.15
+
+entities:
+  customers: 20000
+  accounts: 25000
+  cards: 30000
+  devices: 25000
+  ips: 30000
+  merchants: 1000

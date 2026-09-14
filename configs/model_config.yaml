@@ -1,0 +1,31 @@
+target:
+  name: is_fraud
+
+split:
+  strategy: temporal
+
+classical_models:
+  logistic_regression:
+    enabled: true
+
+  random_forest:
+    enabled: true
+
+  xgboost:
+    enabled: true
+
+graph_models:
+  graphsage:
+    enabled: true
+
+evaluation:
+  primary_metric: pr_auc
+
+  metrics:
+    - pr_auc
+    - roc_auc
+    - precision
+    - recall
+    - f1
+    - precision_at_k
+    - recall_at_k

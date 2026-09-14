@@ -1,0 +1,30 @@
+project:
+  name: fraud-intelligence
+  version: "0.1.0"
+  random_seed: 42
+
+data:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  graph_dir: data/graph
+
+models:
+  artifact_dir: models
+  classical_dir: models/classical
+  graph_dir: models/graph
+  metadata_dir: models/metadata
+
+reports:
+  root_dir: reports
+  figures_dir: reports/figures
+  metrics_dir: reports/metrics
+  data_quality_dir: reports/data_quality
+  model_card_dir: reports/model_card
+
+logging:
+  level: INFO
+
+api:
+  host: 0.0.0.0
+  port: 8000
