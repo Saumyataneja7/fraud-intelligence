@@ -35,6 +35,17 @@ VELOCITY_FEATURE_COLUMNS = [
     "customer_unique_ips_5m",
 ]
 
+def _clean_amount_sum(value: float) -> float:
+    """
+    Remove floating-point noise from amount-window sums.
+
+    Values extremely close to zero are mathematically zero.
+    """
+    if abs(value) < 1e-10:
+        return 0.0
+
+    return float(value)
+
 
 def validate_velocity_columns(
     transactions: pd.DataFrame,
@@ -305,7 +316,15 @@ def add_velocity_features(
 
         result[
             f"customer_amount_sum_{suffix}"
-        ] = amount_sum
+        ] = np.where(
+            np.isclose(
+                amount_sum,
+                0.0,
+                atol=1e-10,
+            ),
+            0.0,
+            amount_sum,
+        )
 
     result[
         "customer_unique_merchants_5m"

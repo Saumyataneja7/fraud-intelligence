@@ -1,0 +1,105 @@
+{
+  "feature_dataset": "data/processed/features/feature_dataset.parquet",
+  "feature_count": 53,
+  "models": [
+    "logistic_regression",
+    "random_forest",
+    "xgboost"
+  ],
+  "splits": [
+    "validation",
+    "test"
+  ],
+  "results": [
+    {
+      "model_name": "logistic_regression",
+      "split_name": "validation",
+      "metrics": {
+        "precision": 0.058973055414336555,
+        "recall": 0.725,
+        "f1": 0.10907381288199341,
+        "pr_auc": 0.33087542379362966,
+        "roc_auc": 0.8987369440700809,
+        "true_negatives": 12989,
+        "false_positives": 1851,
+        "false_negatives": 44,
+        "true_positives": 116
+      }
+    },
+    {
+      "model_name": "logistic_regression",
+      "split_name": "test",
+      "metrics": {
+        "precision": 0.05604566683964712,
+        "recall": 0.782608695652174,
+        "f1": 0.10460048426150122,
+        "pr_auc": 0.31800383942488536,
+        "roc_auc": 0.9121916803675946,
+        "true_negatives": 13043,
+        "false_positives": 1819,
+        "false_negatives": 30,
+        "true_positives": 108
+      }
+    },
+    {
+      "model_name": "random_forest",
+      "split_name": "validation",
+      "metrics": {
+        "precision": 0.9473684210526315,
+        "recall": 0.225,
+        "f1": 0.36363636363636365,
+        "pr_auc": 0.39842995297269007,
+        "roc_auc": 0.8773344845013477,
+        "true_negatives": 14838,
+        "false_positives": 2,
+        "false_negatives": 124,
+        "true_positives": 36
+      }
+    },
+    {
+      "model_name": "random_forest",
+      "split_name": "test",
+      "metrics": {
+        "precision": 0.88,
+        "recall": 0.15942028985507245,
+        "f1": 0.26993865030674846,
+        "pr_auc": 0.3627135799917898,
+        "roc_auc": 0.8738393217601939,
+        "true_negatives": 14859,
+        "false_positives": 3,
+        "false_negatives": 116,
+        "true_positives": 22
+      }
+    },
+    {
+      "model_name": "xgboost",
+      "split_name": "validation",
+      "metrics": {
+        "precision": 0.21052631578947367,
+        "recall": 0.425,
+        "f1": 0.2815734989648033,
+        "pr_auc": 0.36619262912517897,
+        "roc_auc": 0.8767899258760108,
+        "true_negatives": 14585,
+        "false_positives": 255,
+        "false_negatives": 92,
+        "true_positives": 68
+      }
+    },
+    {
+      "model_name": "xgboost",
+      "split_name": "test",
+      "metrics": {
+        "precision": 0.23275862068965517,
+        "recall": 0.391304347826087,
+        "f1": 0.2918918918918919,
+        "pr_auc": 0.3330420050841898,
+        "roc_auc": 0.9043255925529363,
+        "true_negatives": 14684,
+        "false_positives": 178,
+        "false_negatives": 84,
+        "true_positives": 54
+      }
+    }
+  ]
+}

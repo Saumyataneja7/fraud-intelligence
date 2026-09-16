@@ -29,9 +29,8 @@ HISTORICAL_FEATURE_COLUMNS = [
 def validate_historical_columns(
     transactions: pd.DataFrame,
 ) -> None:
-    """
-    Validate columns required for customer historical features.
-    """
+    """Validate columns required for customer historical features."""
+
     missing = REQUIRED_COLUMNS.difference(
         transactions.columns
     )
@@ -59,119 +58,287 @@ def validate_historical_columns(
             "customer_id cannot contain null values."
         )
 
-def _historical_unique_count(
-    dataframe: pd.DataFrame,
-    group_column: str,
-    value_column: str,
-) -> pd.Series:
-    """
-    Calculate the number of distinct values observed strictly before
-    each row within each group.
-    """
-    seen: dict[object, set] = {}
-    output: list[int] = []
-
-    for group_value, value in zip(
-        dataframe[group_column],
-        dataframe[value_column],
-    ):
-        group_seen = seen.setdefault(
-            group_value,
-            set(),
+    if transactions["amount"].isna().any():
+        raise ValueError(
+            "amount cannot contain null values."
         )
 
-        output.append(
-            len(group_seen)
+    if (transactions["amount"] <= 0).any():
+        raise ValueError(
+            "Transaction amounts must be positive."
         )
 
-        group_seen.add(value)
+    for column in [
+        "merchant_id",
+        "device_id",
+        "ip_id",
+    ]:
+        if transactions[column].isna().any():
+            raise ValueError(
+                f"{column} cannot contain null values."
+            )
 
-    return pd.Series(
-        output,
-        index=dataframe.index,
-        dtype="int64",
+
+def _customer_historical_statistics(
+    transactions: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Calculate strictly historical customer statistics.
+
+    For every customer/timestamp pair, statistics include only
+    transactions where:
+
+        historical_timestamp < current_timestamp
+
+    All transactions occurring at the same timestamp receive
+    exactly the same historical values.
+    """
+
+    working = transactions[
+        [
+            "customer_id",
+            "timestamp",
+            "amount",
+            "merchant_id",
+            "device_id",
+            "ip_id",
+        ]
+    ].copy()
+
+    # ---------------------------------------------------------
+    # Aggregate all transactions at the same customer/timestamp
+    # into one block.
+    # ---------------------------------------------------------
+
+    blocks = (
+        working
+        .groupby(
+            [
+                "customer_id",
+                "timestamp",
+            ],
+            sort=True,
+            dropna=False,
+        )
+        .agg(
+            block_txn_count=(
+                "amount",
+                "size",
+            ),
+            block_amount_sum=(
+                "amount",
+                "sum",
+            ),
+        )
+        .reset_index()
     )
 
+    # ---------------------------------------------------------
+    # Calculate count and amount history at block level.
+    # ---------------------------------------------------------
 
-def _historical_max(
-    dataframe: pd.DataFrame,
-    group_column: str,
-    value_column: str,
-) -> pd.Series:
-    """
-    Calculate historical maximum using only strictly previous rows.
-    """
-    historical_max: dict[object, float] = {}
-    output: list[float] = []
-
-    for group_value, value in zip(
-        dataframe[group_column],
-        dataframe[value_column],
-    ):
-        previous_max = historical_max.get(
-            group_value
-        )
-
-        if previous_max is None:
-            output.append(0.0)
-        else:
-            output.append(previous_max)
-
-        historical_max[group_value] = max(
-            previous_max if previous_max is not None else value,
-            value,
-        )
-
-    return pd.Series(
-        output,
-        index=dataframe.index,
-        dtype="float64",
+    blocks["customer_txn_count_before"] = (
+        blocks
+        .groupby(
+            "customer_id",
+            sort=False,
+        )["block_txn_count"]
+        .cumsum()
+        - blocks["block_txn_count"]
     )
 
+    blocks["customer_amount_sum_before"] = (
+        blocks
+        .groupby(
+            "customer_id",
+            sort=False,
+        )["block_amount_sum"]
+        .cumsum()
+        - blocks["block_amount_sum"]
+    )
 
-def _historical_median(
-    dataframe: pd.DataFrame,
-    group_column: str,
-    value_column: str,
-) -> pd.Series:
-    """
-    Calculate historical median using only strictly previous rows.
+    blocks["customer_amount_mean_before"] = np.where(
+        blocks["customer_txn_count_before"] > 0,
+        (
+            blocks["customer_amount_sum_before"]
+            / blocks["customer_txn_count_before"]
+        ),
+        0.0,
+    )
 
-    This implementation is intentionally simple and deterministic for the
-    100K development dataset.
-    """
-    history: dict[object, list[float]] = {}
-    output: list[float] = []
+    # ---------------------------------------------------------
+    # Historical median and max.
+    #
+    # These are calculated from actual prior transactions,
+    # never from the current timestamp block.
+    # ---------------------------------------------------------
 
-    for group_value, value in zip(
-        dataframe[group_column],
-        dataframe[value_column],
+    median_values = []
+    max_values = []
+
+    for customer_id, customer_group in working.groupby(
+        "customer_id",
+        sort=False,
     ):
-        previous_values = history.setdefault(
-            group_value,
-            [],
+        customer_group = customer_group.sort_values(
+            "timestamp",
+            kind="mergesort",
         )
 
-        if not previous_values:
-            output.append(0.0)
-        else:
-            output.append(
-                float(
-                    np.median(
-                        previous_values
-                    )
+        previous_amounts: list[float] = []
+
+        for timestamp, timestamp_group in customer_group.groupby(
+            "timestamp",
+            sort=True,
+        ):
+            if previous_amounts:
+                median_value = float(
+                    np.median(previous_amounts)
+                )
+                max_value = float(
+                    np.max(previous_amounts)
+                )
+            else:
+                median_value = 0.0
+                max_value = 0.0
+
+            median_values.append(
+                (
+                    customer_id,
+                    timestamp,
+                    median_value,
                 )
             )
 
-        previous_values.append(
-            float(value)
+            max_values.append(
+                (
+                    customer_id,
+                    timestamp,
+                    max_value,
+                )
+            )
+
+            previous_amounts.extend(
+                timestamp_group[
+                    "amount"
+                ].astype(float).tolist()
+            )
+
+    median_lookup = pd.DataFrame(
+        median_values,
+        columns=[
+            "customer_id",
+            "timestamp",
+            "customer_amount_median_before",
+        ],
+    )
+
+    max_lookup = pd.DataFrame(
+        max_values,
+        columns=[
+            "customer_id",
+            "timestamp",
+            "customer_amount_max_before",
+        ],
+    )
+
+    blocks = blocks.merge(
+        median_lookup,
+        on=[
+            "customer_id",
+            "timestamp",
+        ],
+        how="left",
+        validate="one_to_one",
+    )
+
+    blocks = blocks.merge(
+        max_lookup,
+        on=[
+            "customer_id",
+            "timestamp",
+        ],
+        how="left",
+        validate="one_to_one",
+    )
+
+    # ---------------------------------------------------------
+    # Historical unique entity counts.
+    #
+    # Again, only timestamps strictly before the current
+    # timestamp are considered.
+    # ---------------------------------------------------------
+
+    unique_values = []
+
+    for customer_id, customer_group in working.groupby(
+        "customer_id",
+        sort=False,
+    ):
+        customer_group = customer_group.sort_values(
+            "timestamp",
+            kind="mergesort",
         )
 
-    return pd.Series(
-        output,
-        index=dataframe.index,
-        dtype="float64",
+        previous_merchants: set = set()
+        previous_devices: set = set()
+        previous_ips: set = set()
+
+        for timestamp, timestamp_group in customer_group.groupby(
+            "timestamp",
+            sort=True,
+        ):
+            unique_values.append(
+                (
+                    customer_id,
+                    timestamp,
+                    len(previous_merchants),
+                    len(previous_devices),
+                    len(previous_ips),
+                )
+            )
+
+            previous_merchants.update(
+                timestamp_group[
+                    "merchant_id"
+                ].tolist()
+            )
+
+            previous_devices.update(
+                timestamp_group[
+                    "device_id"
+                ].tolist()
+            )
+
+            previous_ips.update(
+                timestamp_group[
+                    "ip_id"
+                ].tolist()
+            )
+
+    unique_lookup = pd.DataFrame(
+        unique_values,
+        columns=[
+            "customer_id",
+            "timestamp",
+            "customer_unique_merchants_before",
+            "customer_unique_devices_before",
+            "customer_unique_ips_before",
+        ],
     )
+
+    blocks = blocks.merge(
+        unique_lookup,
+        on=[
+            "customer_id",
+            "timestamp",
+        ],
+        how="left",
+        validate="one_to_one",
+    )
+
+    return blocks
+
 
 def add_customer_historical_features(
     transactions: pd.DataFrame,
@@ -179,109 +346,96 @@ def add_customer_historical_features(
     """
     Add leakage-safe customer historical features.
 
-    For each transaction, only transactions with a timestamp strictly
-    earlier than the current transaction timestamp are used.
+    Historical information is strictly:
 
-    Same-timestamp transactions are intentionally excluded because the
-    dataset does not provide an explicit event ordering.
+        timestamp < current transaction timestamp
+
+    Same-timestamp transactions cannot influence each other.
+
+    Original row order is preserved.
     """
+
     validate_historical_columns(
         transactions
     )
 
     result = transactions.copy()
 
-    original_index = result.index
-
+    # Keep explicit original position.
     result["_original_order"] = np.arange(
         len(result)
     )
 
-    result = result.sort_values(
-        [
+    blocks = _customer_historical_statistics(
+        result
+    )
+
+    # ---------------------------------------------------------
+    # Map customer/timestamp history back to transactions.
+    # ---------------------------------------------------------
+
+    result = result.merge(
+        blocks[
+            [
+                "customer_id",
+                "timestamp",
+                *HISTORICAL_FEATURE_COLUMNS,
+            ]
+        ],
+        on=[
             "customer_id",
             "timestamp",
-            "_original_order",
         ],
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+
+    # Restore original transaction order.
+    result = result.sort_values(
+        "_original_order",
         kind="mergesort",
-    ).reset_index(
+    )
+
+    result = result.drop(
+        columns="_original_order"
+    )
+
+    result = result.reset_index(
         drop=True
     )
 
-    customer_group = result.groupby(
-        "customer_id",
-        sort=False,
-        dropna=False,
-    )
+    # Enforce expected dtypes.
+    result[
+        "customer_txn_count_before"
+    ] = result[
+        "customer_txn_count_before"
+    ].astype("int64")
 
-    result["customer_txn_count_before"] = (
-        customer_group.cumcount()
-        .astype("int64")
-    )
-
-    result["customer_amount_sum_before"] = (
-        customer_group["amount"]
-        .transform(
-            lambda values: values.cumsum()
-            .shift(fill_value=0)
+    for column in [
+        "customer_amount_sum_before",
+        "customer_amount_mean_before",
+        "customer_amount_median_before",
+        "customer_amount_max_before",
+    ]:
+        result[column] = result[column].astype(
+            "float64"
         )
-        .astype("float64")
-    )
 
-    result["customer_amount_mean_before"] = (
-        result["customer_amount_sum_before"]
-        / result["customer_txn_count_before"]
-        .replace(0, np.nan)
-    ).fillna(0.0)
-
-    result["customer_amount_median_before"] = (
-        _historical_median(
-            result,
-            "customer_id",
-            "amount",
+    for column in [
+        "customer_unique_merchants_before",
+        "customer_unique_devices_before",
+        "customer_unique_ips_before",
+    ]:
+        result[column] = result[column].astype(
+            "int64"
         )
-    )
-
-    result["customer_amount_max_before"] = (
-        _historical_max(
-            result,
-            "customer_id",
-            "amount",
-        )
-    )
-
-    result["customer_unique_merchants_before"] = (
-        _historical_unique_count(
-            result,
-            "customer_id",
-            "merchant_id",
-        )
-    )
-
-    result["customer_unique_devices_before"] = (
-        _historical_unique_count(
-            result,
-            "customer_id",
-            "device_id",
-        )
-    )
-
-    result["customer_unique_ips_before"] = (
-        _historical_unique_count(
-            result,
-            "customer_id",
-            "ip_id",
-        )
-    )
-
-    result = result.sort_values(
-        "_original_order"
-    )
-
-    result.index = original_index
-
-    result = result.drop(
-        columns=["_original_order"]
-    )
 
     return result
+
+
+__all__ = [
+    "HISTORICAL_FEATURE_COLUMNS",
+    "add_customer_historical_features",
+    "validate_historical_columns",
+]
