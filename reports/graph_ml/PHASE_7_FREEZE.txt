@@ -1,0 +1,42 @@
+PHASE 7 FREEZE
+
+Project: Fraud Intelligence
+Phase: 7 — Graph Machine Learning
+Version: 1.0.0
+Status: FROZEN
+
+Frozen components:
+Graph ML data contract
+Temporal graph split
+Graph feature preparation
+Transaction node labels
+GraphSAGE baseline
+GNN training pipeline
+GNN evaluation
+Threshold optimization
+Precision@K / Recall@K
+GNN error analysis
+Classical ML vs GNN comparison
+Graph ML report
+
+Graph artifact inherited from Phase 6:
+data/graph/heterogeneous_graph.pt
+
+Graph metadata:
+data/graph/graph_metadata.json
+
+Phase 6 topology SHA-256:
+1f26bbc304ac823e4f5e697442b86aff8061804f119cab265d0d4100e0841867
+
+Report:
+reports/graph_ml/GRAPH_ML_REPORT.md
+
+Freeze marker:
+reports/graph_ml/PHASE_7_FREEZE.txt
+
+Important:
+No numerical GNN performance claims are frozen unless they are produced by an
+actual end-to-end training and evaluation run.
+
+Next project layer:
+Explainability / Fraud Intelligence

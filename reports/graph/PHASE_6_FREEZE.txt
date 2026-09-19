@@ -1,0 +1,35 @@
+PHASE 6 FREEZE
+    Project: Fraud Intelligence
+
+Phase: 6 — Graph Construction
+Version: 1.0.0
+
+Status: FROZEN
+
+Frozen components:
+
+Graph contracts
+Node tables
+Edge tables
+Graph ID mapping
+Heterogeneous graph construction
+Graph validation
+Temporal graph controls
+Graph statistics
+Graph artifact materialization
+
+Graph artifact:
+data/graph/heterogeneous_graph.pt
+
+Metadata:
+data/graph/graph_metadata.json
+
+Topology SHA-256:
+1f26bbc304ac823e4f5e697442b86aff8061804f119cab265d0d4100e0841867
+
+The Phase 6 graph topology should not be changed
+without intentionally creating a new graph artifact
+version.
+
+Next phase:
+Graph ML

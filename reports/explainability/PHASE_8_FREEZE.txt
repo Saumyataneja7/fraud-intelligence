@@ -1,0 +1,29 @@
+PHASE 8 FREEZE
+
+Project: Fraud Intelligence
+Phase: 8 — Explainability
+Status: COMPLETE / FROZEN
+
+Completed:
+8.1 Explainability Data Contract
+8.2 Classical ML Feature Attribution
+8.3 SHAP Integration
+8.4 GNN / Graph Explanation Contract
+8.5 GNN Neighborhood Explanation
+8.6 GNN Feature / Node Importance
+8.7 Transaction Explanation Assembly
+8.8 Human-Readable Explanation
+8.9 Explanation Validation & Leakage Controls
+8.10 Explainability Comparison
+8.11 Explainability Tests & Integration
+8.12 Explainability Report & Freeze
+
+Freeze rules:
+
+Do not modify Phase 8 explainability contracts without
+explicitly reopening Phase 8.
+Do not modify frozen Phase 5, Phase 6, or Phase 7 artifacts
+as part of Phase 8.
+Do not introduce target leakage into explanation features.
+Do not use future or same-timestamp graph context.
+Do not treat explanation evidence as proof of fraud.
