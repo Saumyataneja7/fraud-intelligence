@@ -36,24 +36,33 @@ from api.services.graph import (
     GraphInvestigationService,
     GraphInvestigationServiceError,
 )
+from contextlib import asynccontextmanager
 
 from api.services.graph import (
     GraphInvestigationService,
     GraphInvestigationServiceError,
 )
-from api.contracts.explanation import ExplanationResponse
-from api.services.explanation import (
-    ExplanationService,
-    ExplanationServiceError,
-)
-from api.contracts.model_metrics import ModelMetricsResponse
-from api.services.model_metrics import (
-    ModelMetricsService,
-    ModelMetricsServiceError,
-)
 
 API_VERSION = "1.0.0"
 SERVICE_NAME = "fraud-intelligence-api"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize application resources."""
+
+    graph_service = GraphInvestigationService()
+
+    try:
+        app.state.graph_index = (
+            graph_service.build_index()
+        )
+    except GraphInvestigationServiceError:
+        app.state.graph_index = None
+
+    yield
+
+    app.state.graph_index = None
 
 
 app = FastAPI(
@@ -63,6 +72,7 @@ app = FastAPI(
         "investigation platform."
     ),
     version=API_VERSION,
+    lifespan=lifespan,
 )
 
 
@@ -267,81 +277,46 @@ graph_investigation_service = GraphInvestigationService()
     response_model=GraphResponse,
     tags=["graph"],
 )
-def investigate_graph(node_id: int, node_type: str) -> GraphResponse:
+def investigate_graph(
+    node_id: int,
+    node_type: str,
+) -> GraphResponse:
+    """Return the one-hop graph neighborhood of a node."""
+
+    graph_index = getattr(
+        app.state,
+        "graph_index",
+        None,
+    )
+
+    if graph_index is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Graph investigation service is unavailable.",
+        )
+
     try:
         return graph_investigation_service.investigate(
             node_type=node_type,
             node_id=node_id,
+            index=graph_index,
         )
+
     except GraphInvestigationServiceError as exc:
         message = str(exc)
 
-        if message.startswith("Unknown graph node"):
-            raise HTTPException(status_code=404, detail=message) from exc
-
-        if message.startswith("Unsupported graph node type"):
-            raise HTTPException(status_code=404, detail=message) from exc
-
-        if message.startswith("Invalid graph node id"):
-            raise HTTPException(status_code=422, detail=message) from exc
+        if (
+            message.startswith("Unknown ")
+            or message.startswith(
+                "Unsupported graph node type"
+            )
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail=message,
+            ) from exc
 
         raise HTTPException(
             status_code=503,
             detail="Graph investigation service is unavailable.",
-        ) from exc
-    
-
-explanation_service = ExplanationService()
-
-@app.get(
-    "/explanation/{transaction_id}",
-    response_model=ExplanationResponse,
-    tags=["explanation"],
-)
-def explain_transaction(
-    transaction_id: str,
-) -> ExplanationResponse:
-    """Return explainability evidence for a transaction."""
-
-    try:
-        return explanation_service.explain(
-            transaction_id
-        )
-
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=404,
-            detail=str(exc),
-        ) from exc
-
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        ) from exc
-
-    except ExplanationServiceError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=str(exc),
-        ) from exc
-    
-
-model_metrics_service = ModelMetricsService()
-
-@app.get(
-    "/model-metrics",
-    response_model=ModelMetricsResponse,
-    tags=["model"],
-)
-def model_metrics() -> ModelMetricsResponse:
-    """Return frozen Phase 5 model evaluation metrics."""
-
-    try:
-        return model_metrics_service.get_metrics()
-
-    except ModelMetricsServiceError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=str(exc),
         ) from exc

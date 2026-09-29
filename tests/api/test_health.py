@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 
+
 client = TestClient(app)
 
 
@@ -12,6 +13,6 @@ def test_health_endpoint() -> None:
 
     data = response.json()
 
-    assert data["status"] == "healthy"
+    assert data["status"] == "ok"
     assert data["service"] == "fraud-intelligence-api"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "1.0.0"

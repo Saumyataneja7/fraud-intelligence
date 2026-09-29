@@ -1,0 +1,282 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from fraud_intelligence.graph.contracts import (
+    EDGE_TYPES,
+    NODE_TYPES,
+)
+from fraud_intelligence.graph.materialization import (
+    GraphMaterializationError,
+    load_graph_artifact,
+)
+
+from api.contracts.graph import (
+    GraphEdgeResponse,
+    GraphNodeResponse,
+    GraphResponse,
+)
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+GRAPH_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "graph"
+    / "heterogeneous_graph.pt"
+)
+
+GRAPH_METADATA_PATH = (
+    PROJECT_ROOT
+    / "data"
+    / "graph"
+    / "graph_metadata.json"
+)
+
+
+class GraphInvestigationServiceError(RuntimeError):
+    """Raised when graph investigation cannot be completed."""
+
+
+@dataclass(frozen=True)
+class GraphInvestigationService:
+    """Read-only graph investigation service."""
+
+    graph_path: Path = GRAPH_PATH
+    metadata_path: Path = GRAPH_METADATA_PATH
+
+    def build_index(self) -> dict:
+        """
+        Load and validate the frozen Phase 6 graph and convert it
+        into a plain-Python adjacency index.
+
+        No PyTorch/PyG objects are retained after this method returns.
+        """
+
+        try:
+            graph = load_graph_artifact(
+                self.graph_path,
+                self.metadata_path,
+            )
+        except (
+            GraphMaterializationError,
+            OSError,
+            ValueError,
+        ) as exc:
+            raise GraphInvestigationServiceError(
+                f"Unable to load graph artifact: {exc}"
+            ) from exc
+
+        adjacency: dict[
+            tuple[str, int],
+            list[GraphEdgeResponse],
+        ] = {}
+
+        for graph_edge_type in graph.data.edge_types:
+            (
+                source_node_type,
+                relationship_type,
+                target_node_type,
+            ) = graph_edge_type
+
+            if relationship_type not in EDGE_TYPES:
+                raise GraphInvestigationServiceError(
+                    "Graph contains unsupported relationship type: "
+                    f"{relationship_type}"
+                )
+
+            edge_index = graph.data[
+                graph_edge_type
+            ].edge_index
+
+            if edge_index.numel() == 0:
+                continue
+
+            source_ids = edge_index[0].tolist()
+            target_ids = edge_index[1].tolist()
+
+            for source_id, target_id in zip(
+                source_ids,
+                target_ids,
+            ):
+                source_id = int(source_id)
+                target_id = int(target_id)
+
+                edge = GraphEdgeResponse(
+                    relationship_type=relationship_type,
+                    source_node_type=source_node_type,
+                    source_node_id=source_id,
+                    target_node_type=target_node_type,
+                    target_node_id=target_id,
+                )
+
+                adjacency.setdefault(
+                    (
+                        source_node_type,
+                        source_id,
+                    ),
+                    [],
+                ).append(edge)
+
+                adjacency.setdefault(
+                    (
+                        target_node_type,
+                        target_id,
+                    ),
+                    [],
+                ).append(edge)
+
+        return {
+            "node_counts": dict(graph.node_counts),
+            "adjacency": {
+                key: tuple(
+                    sorted(
+                        value,
+                        key=lambda edge: (
+                            edge.relationship_type,
+                            edge.source_node_type,
+                            edge.source_node_id,
+                            edge.target_node_type,
+                            edge.target_node_id,
+                        ),
+                    )
+                )
+                for key, value in adjacency.items()
+            },
+        }
+
+    @staticmethod
+    def _validate_node_type(
+        node_type: str,
+    ) -> None:
+        if node_type not in NODE_TYPES:
+            raise GraphInvestigationServiceError(
+                f"Unsupported graph node type: {node_type}"
+            )
+
+    @staticmethod
+    def _validate_node_id(
+        *,
+        node_type: str,
+        node_id: int,
+        node_counts: dict[str, int],
+    ) -> None:
+        if node_id < 0:
+            raise GraphInvestigationServiceError(
+                "node_id must be non-negative."
+            )
+
+        if node_id >= node_counts[node_type]:
+            raise GraphInvestigationServiceError(
+                f"Unknown {node_type} graph node ID: {node_id}"
+            )
+
+    @staticmethod
+    def _build_response(
+        *,
+        node_type: str,
+        node_id: int,
+        adjacency: dict,
+    ) -> GraphResponse:
+
+        edges = adjacency.get(
+            (node_type, node_id),
+            (),
+        )
+
+        nodes: set[tuple[str, int]] = {
+            (
+                node_type,
+                node_id,
+            )
+        }
+
+        for edge in edges:
+            nodes.add(
+                (
+                    edge.source_node_type,
+                    edge.source_node_id,
+                )
+            )
+
+            nodes.add(
+                (
+                    edge.target_node_type,
+                    edge.target_node_id,
+                )
+            )
+
+        node_responses = [
+            GraphNodeResponse(
+                node_type=current_type,
+                node_id=current_id,
+            )
+            for current_type, current_id in sorted(
+                nodes,
+                key=lambda value: (
+                    value[0],
+                    value[1],
+                ),
+            )
+        ]
+
+        return GraphResponse(
+            target_node_type=node_type,
+            target_node_id=node_id,
+            nodes=node_responses,
+            edges=list(edges),
+        )
+
+    def investigate(
+        self,
+        *,
+        node_type: str,
+        node_id: int,
+        index: dict,
+    ) -> GraphResponse:
+        """Investigate a node using a pre-built Python adjacency index."""
+
+        if not isinstance(node_type, str) or not node_type.strip():
+            raise GraphInvestigationServiceError(
+                "node_type cannot be empty."
+            )
+
+        self._validate_node_type(node_type)
+
+        if not isinstance(node_id, int):
+            raise GraphInvestigationServiceError(
+                "node_id must be an integer."
+            )
+
+        if not isinstance(index, dict):
+            raise GraphInvestigationServiceError(
+                "Graph index is unavailable."
+            )
+
+        node_counts = index.get("node_counts")
+
+        if not isinstance(node_counts, dict):
+            raise GraphInvestigationServiceError(
+                "Graph index is invalid."
+            )
+
+        self._validate_node_id(
+            node_type=node_type,
+            node_id=node_id,
+            node_counts=node_counts,
+        )
+
+        adjacency = index.get("adjacency")
+
+        if not isinstance(adjacency, dict):
+            raise GraphInvestigationServiceError(
+                "Graph adjacency index is invalid."
+            )
+
+        return self._build_response(
+            node_type=node_type,
+            node_id=node_id,
+            adjacency=adjacency,
+        )
