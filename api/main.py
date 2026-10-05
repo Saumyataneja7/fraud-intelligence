@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import Body, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.contracts.common import HealthResponse
 from api.contracts.fraud_ring import FraudRingInvestigationResponse
@@ -51,6 +52,10 @@ from api.services.model_metrics import (
     ModelMetricsService,
     ModelMetricsServiceError,
 )
+from api.services.transaction_fraud_ring import (
+    TransactionFraudRingService,
+    TransactionFraudRingServiceError,
+)
 
 API_VERSION = "1.0.0"
 SERVICE_NAME = "fraud-intelligence-api"
@@ -63,6 +68,17 @@ app = FastAPI(
         "investigation platform."
     ),
     version=API_VERSION,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -192,7 +208,7 @@ def investigate_transaction(
             status_code=400,
             detail=str(exc),
         ) from exc
-    
+
 @app.get(
     "/customer/{customer_id}",
     response_model=EntityInvestigationResponse,
@@ -225,7 +241,7 @@ def investigate_customer(
             status_code=400,
             detail=str(exc),
         ) from exc
-    
+
 
 fraud_ring_investigation_service = FraudRingInvestigationService()
 
@@ -259,7 +275,44 @@ def investigate_fraud_ring(
             status_code=400,
             detail=str(exc),
         )
-    
+
+transaction_fraud_ring_service = TransactionFraudRingService()
+
+
+@app.get(
+    "/transaction/{transaction_id}/fraud-ring",
+    response_model=FraudRingInvestigationResponse,
+    tags=["fraud-ring"],
+)
+def investigate_transaction_fraud_ring(
+    transaction_id: str,
+) -> FraudRingInvestigationResponse:
+    try:
+        return transaction_fraud_ring_service.investigate(
+            transaction_id
+        )
+
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No fraud-ring candidate was found for "
+                f"transaction {transaction_id!r}."
+            ),
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except TransactionFraudRingServiceError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from exc
+
 graph_investigation_service = GraphInvestigationService()
 
 @app.get(
@@ -289,7 +342,7 @@ def investigate_graph(node_id: int, node_type: str) -> GraphResponse:
             status_code=503,
             detail="Graph investigation service is unavailable.",
         ) from exc
-    
+
 
 explanation_service = ExplanationService()
 
@@ -325,7 +378,7 @@ def explain_transaction(
             status_code=503,
             detail=str(exc),
         ) from exc
-    
+
 
 model_metrics_service = ModelMetricsService()
 
