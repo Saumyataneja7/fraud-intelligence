@@ -13,7 +13,7 @@
     "validation": 15000,
     "test": 15000
   },
-  "git_commit": "11c3ec9339bdd8a0329049ee9156a41ff5795833",
+  "git_commit": "e15080831ebb94633b500623c4eb6004df1ba414",
   "results": [
     {
       "model_name": "logistic_regression",
