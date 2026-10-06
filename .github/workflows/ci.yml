@@ -44,6 +44,10 @@ jobs:
             --fraud-rate 0.01 \
             --output-dir data/raw/synthetic
 
+      - name: Build feature dataset
+        run: |
+          PYTHONPATH=src python scripts/build_feature_dataset.py
+
       - name: Materialize graph
         run: |
           PYTHONPATH=src python scripts/materialize_graph.py
