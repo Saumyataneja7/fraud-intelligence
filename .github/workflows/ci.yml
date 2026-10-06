@@ -36,6 +36,22 @@ jobs:
         run: |
           python -m compileall api src scripts
 
+      - name: Generate frozen synthetic dataset
+        run: |
+          PYTHONPATH=src python scripts/generate_data.py \
+            --transactions 100000 \
+            --seed 42 \
+            --fraud-rate 0.01 \
+            --output-dir data/raw/synthetic
+
+      - name: Materialize graph
+        run: |
+          PYTHONPATH=src python scripts/materialize_graph.py
+
+      - name: Build graph API index
+        run: |
+          PYTHONPATH=src python scripts/build_graph_api_index.py
+
       - name: Run Ruff
         run: |
           ruff check api src scripts --exit-zero
