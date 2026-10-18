@@ -4,57 +4,52 @@ from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.contracts.common import HealthResponse
+from api.contracts.entity import (
+    EntityInvestigationResponse,
+)
+from api.contracts.explanation import ExplanationResponse
 from api.contracts.fraud_ring import FraudRingInvestigationResponse
-
+from api.contracts.graph import GraphResponse
+from api.contracts.model_metrics import ModelMetricsResponse
 from api.contracts.prediction import (
     PredictionRequest,
     PredictionResponse,
 )
-from api.services.prediction import (
-    PredictionService,
-    PredictionServiceError,
-)
 from api.contracts.transaction import (
     TransactionInvestigationResponse,
 )
-from api.services.transaction_investigation import (
-    TransactionInvestigationService,
-    TransactionInvestigationServiceError,
-)
-from api.contracts.entity import (
-    EntityInvestigationResponse,
-)
+from api.observability import ObservabilityMiddleware
 from api.services.entity_investigation import (
     EntityInvestigationService,
     EntityInvestigationServiceError,
+)
+from api.services.explanation import (
+    ExplanationService,
+    ExplanationServiceError,
 )
 from api.services.fraud_ring import (
     FraudRingInvestigationService,
     FraudRingInvestigationServiceError,
 )
-from api.contracts.graph import GraphResponse
 from api.services.graph import (
     GraphInvestigationService,
     GraphInvestigationServiceError,
 )
-
-from api.services.graph import (
-    GraphInvestigationService,
-    GraphInvestigationServiceError,
-)
-from api.contracts.explanation import ExplanationResponse
-from api.services.explanation import (
-    ExplanationService,
-    ExplanationServiceError,
-)
-from api.contracts.model_metrics import ModelMetricsResponse
 from api.services.model_metrics import (
     ModelMetricsService,
     ModelMetricsServiceError,
 )
+from api.services.prediction import (
+    PredictionService,
+    PredictionServiceError,
+)
 from api.services.transaction_fraud_ring import (
     TransactionFraudRingService,
     TransactionFraudRingServiceError,
+)
+from api.services.transaction_investigation import (
+    TransactionInvestigationService,
+    TransactionInvestigationServiceError,
 )
 
 API_VERSION = "1.0.0"
@@ -69,6 +64,8 @@ app = FastAPI(
     ),
     version=API_VERSION,
 )
+
+app.add_middleware(ObservabilityMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
