@@ -48,6 +48,10 @@ jobs:
         run: |
           PYTHONPATH=src python scripts/build_feature_dataset.py
 
+      - name: Run data quality gate
+        run: |
+          PYTHONPATH=src python scripts/validate_data_quality.py
+
       - name: Materialize graph
         run: |
           PYTHONPATH=src python scripts/materialize_graph.py
@@ -55,6 +59,14 @@ jobs:
       - name: Build graph API index
         run: |
           PYTHONPATH=src python scripts/build_graph_api_index.py
+
+      - name: Run reproducible training pipeline
+        run: |
+          PYTHONPATH=src python scripts/train_classical_pipeline.py
+
+      - name: Run model quality gate
+        run: |
+          PYTHONPATH=src python scripts/validate_model_quality.py
 
       - name: Run Ruff
         run: |
