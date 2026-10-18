@@ -409,6 +409,7 @@ def _train_random_forest(
         mlflow.sklearn.log_model(
             model.classifier,
             name="model",
+            skops_trusted_types=["sklearn.tree._tree.Tree"],
         )
 
     return results
