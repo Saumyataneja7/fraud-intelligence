@@ -22,6 +22,7 @@ From the repository root:
 
 ```bash
 docker build -t fraud-intelligence-api:12.5 .
+```
 
 ### Run
 
@@ -29,6 +30,7 @@ docker run -d \
   --name fraud-intelligence-api \
   -p 8000:8000 \
   fraud-intelligence-api:12.5
+```
 
 The API is available at:
 http://127.0.0.1:8000
@@ -36,7 +38,10 @@ http://127.0.0.1:8000
 ### Validation
 
 Health check:
+
+```bash
 curl -sS http://127.0.0.1:8000/health
+```
 
 Expected:
 {
@@ -44,20 +49,32 @@ Expected:
   "service": "fraud-intelligence-api",
   "version": "1.0.0"
 }
+```
 
 Metadata:
+
+```bash
 curl -sS http://127.0.0.1:8000/metadata
+```
 
 Graph API:
+
+```bash
 curl -sS "http://127.0.0.1:8000/graph/0?node_type=customer"
+```
 
 Transaction investigation:
+
+```bash
 curl -sS -i http://127.0.0.1:8000/transaction/TXN_000000000
+```
 
 The current repository intentionally does not contain the XGBoost model
 artifact. Therefore the transaction investigation endpoint is expected to
 return HTTP 503 with:
+```text
 Model artifact not found: /app/models/classical/xgboost_model.joblib
+```
 
 This is expected behavior and does not indicate a Docker runtime failure.
 
@@ -117,27 +134,3 @@ Validated on the local Docker Desktop Linux/ARM64 environment:
 - Expected missing-model HTTP 503: PASS
 
 The Docker image is therefore validated as a working containerized API runtime.
-
-EOF
-printf '\n--- Docker files ---\n'
-test -f Dockerfile && echo "Dockerfile: OK"
-test -f requirements-api.txt && echo "requirements-api.txt: OK"
-test -f .dockerignore && echo ".dockerignore: OK"
-test -f docs/mlops/docker.md && echo "docker.md: OK"
-printf '\n--- Git diff ---\n'
-git status --short
-git add Dockerfile requirements-api.txt .dockerignore docs/mlops/docker.md
-git commit -m "feat: dockerize fraud intelligence API"
-git push origin main
-printf '\n--- Final status ---\n'
-git status --short
-git log -1 --oneline
-
-
-### What this closes
-
-This gives us a clean **Phase 12.5 Dockerization milestone**:
-
-**Source → API runtime dependencies → Docker image → container → FastAPI → packaged data → endpoint validation**
-
-And importantly, we're **not changing the frozen Phase 10 API**, not creating a fake XGBoost artifact, and not starting Phase 12.6.

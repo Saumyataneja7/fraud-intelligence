@@ -102,6 +102,7 @@ Observability operates alongside the serving and model lifecycle:
                     | Model Performance     |
                     | API Health             |
                     +------------------------+
+```
 
 ---
 
@@ -508,50 +509,52 @@ This enables the system to evolve from a static ML application into a continuous
 
 Phase 12 is intentionally divided into separate implementation stages.
 
-Phase	Responsibility	Status
-12.1	MLOps architecture	In progress
-12.2	MLflow experiment tracking	Planned
-12.3	Model registry	Planned
-12.4	Reproducible training pipeline	Planned
-12.5	Dockerization	Planned
-12.6	Frontend production build/environment	Planned
-12.7	CI/CD	Planned
-12.8	Model/data quality gates	Planned
-12.9	API observability	Planned
-12.10	ML monitoring	Planned
-12.11	Production architecture documentation	Planned
-12.12	Final production validation	Planned
+| Phase | Responsibility | Status |
+|---|---|---|
+| 12.1 | MLOps architecture | Documented |
+| 12.2 | MLflow experiment tracking | Planned |
+| 12.3 | Model registry | Planned |
+| 12.4 | Reproducible training pipeline | Implemented; CI-validated |
+| 12.5 | Dockerization | Implemented; locally validated |
+| 12.6 | Frontend production build/environment | Implemented; CI-validated |
+| 12.7 | CI/CD | CI implemented; automated deployment not established |
+| 12.8 | Model/data quality gates | Implemented; CI-validated |
+| 12.9 | API observability | Implemented; API tests cover request IDs and structured request logs |
+| 12.10 | ML monitoring | Drift monitoring modules and unit tests implemented |
+| 12.11 | Production architecture documentation | In progress |
+| 12.12 | Final production validation | Planned |
 
 
-No later-phase implementation is included in Phase 12.1.
+Phase 12.1 established the target architecture. Subsequent phases implement and validate individual components independently; the phase boundaries track scope and do not imply that all later-phase work remains unimplemented.
 
 ---
 
 ## 16. Current vs Target State
 
-### Currently implemented
-- Frozen dataset
-- Feature engineering
-- Feature dataset
-- Classical ML models
-- Model evaluation artifacts
+### Implemented and validated components
+
+- Frozen synthetic dataset and feature engineering pipeline
+- Classical ML training pipeline and model evaluation artifacts
+- Data and model quality-gate validation scripts
 - FastAPI prediction and investigation APIs
-- React frontend
-- API integration tests
-- Frontend build validation
+- API observability through request IDs and structured request logging
+- React + TypeScript frontend and production build
+- Dockerized API runtime, validated locally
+- GitHub Actions CI for backend and frontend checks
+- Feature drift and prediction drift monitoring modules, with unit tests
+- API, unit, and integration test suites in the CI workflow
+
+Validation scope matters: passing tests or CI does not establish production deployment, continuous production monitoring, or operational service-level guarantees. Docker validation documented here is local; the CI workflow validates builds and tests but does not establish automated deployment.
 
 ### Target / future implementation
-- MLflow experiment tracking
-- Model registry
-- Automated training pipeline
-- Model quality gates
-- Dockerized services
-- CI/CD
-- API observability
-- ML monitoring
-- Automated retraining workflow
 
-The distinction is intentional to prevent documentation from claiming production capabilities that have not yet been implemented.
+- MLflow experiment tracking
+- Model registry and governed model promotion
+- Integration of monitoring outputs with a deployed production service and alerting
+- Automated retraining decisions and retraining workflow
+- Production deployment validation, including environment-specific configuration and operational readiness
+
+These boundaries prevent implemented code and local/CI validation from being mistaken for a fully deployed production platform.
 
 ---
 
