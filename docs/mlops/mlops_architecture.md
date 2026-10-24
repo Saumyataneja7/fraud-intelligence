@@ -521,8 +521,8 @@ Phase 12 is intentionally divided into separate implementation stages.
 | 12.8 | Model/data quality gates | Implemented; CI-validated |
 | 12.9 | API observability | Implemented; API tests cover request IDs and structured request logs |
 | 12.10 | ML monitoring | Drift monitoring modules and unit tests implemented |
-| 12.11 | Production architecture documentation | In progress |
-| 12.12 | Final production validation | Planned |
+| 12.11 | Production architecture documentation | Completed; committed and pushed |
+| 12.12 | Final production validation | Locally validated; CI passed for baseline commit |
 
 
 Phase 12.1 established the target architecture. Subsequent phases implement and validate individual components independently; the phase boundaries track scope and do not imply that all later-phase work remains unimplemented.
@@ -621,3 +621,55 @@ Drift / Performance --------+
 Retraining Decision
 
 This architecture provides the foundation for the remaining Phase 12 implementation.
+
+---
+
+## 19. Phase 12.12 — Final Validation Record
+
+### Validation results
+
+The following checks were completed during final validation:
+
+| Area | Result | Evidence |
+|---|---|---|
+| Python dependencies | Passed | `pip check` reported no broken requirements |
+| Python compilation | Passed | `compileall` completed without reported errors |
+| Stable unit tests | Passed | 1,320 passed |
+| Graph ML tests | Passed | 295 passed |
+| API tests | Passed | 7 passed |
+| Integration tests | Passed | 28 passed |
+| Data quality | Passed | 100,000 rows; 53 model features; expected fraud rate of 1% |
+| Model quality | Passed | All three classical models passed the configured quality gate |
+| Graph artifact | Passed | 231,000 nodes and 843,214 edges; artifact topology validation passed |
+| Graph API SQLite index | Passed | SQLite integrity check returned `ok`; node and edge counts matched the graph artifact |
+| Frontend lint | Passed | `npm run lint` completed successfully |
+| Frontend production build | Passed | TypeScript build and Vite production build completed successfully |
+| GitHub Actions | Passed | Backend CI and Frontend CI passed for baseline commit `832184e` |
+
+The four local test groups reported **1,650 passed tests and zero failures**. Test runs emitted warnings, but no test failures were reported.
+
+### Model quality gate results
+
+| Model | PR-AUC | ROC-AUC | Recall | Gate |
+|---|---:|---:|---:|---|
+| Logistic Regression | 0.3307 | 0.8987 | 0.7250 | Passed |
+| Random Forest | 0.3921 | 0.8790 | 0.2437 | Passed |
+| XGBoost | 0.3746 | 0.8766 | 0.4250 | Passed |
+
+These values reflect the validated evaluation summary for this project; they are not a guarantee of performance on future or production data.
+
+### Docker and deployment boundary
+
+Docker and API smoke validation had been completed locally before this phase. Docker validation was not repeated as part of the Phase 12.12 checks. The previously observed missing-model response was expected when the model artifact was unavailable; it does not establish successful production model serving.
+
+The GitHub Actions results apply to baseline commit `832184e`. They do not validate this subsequent documentation edit, which is documentation-only and has not yet been rerun through CI.
+
+### Remaining limitations
+
+- Automated production deployment has not been established.
+- Production deployment and environment-specific operational readiness have not been verified.
+- Continuous production monitoring, integrated alerting, and service-level guarantees have not been established.
+- MLflow experiment tracking, model registry and governed promotion, and automated retraining remain future work.
+- The Ruff CI command uses `--exit-zero`; a successful workflow therefore does not establish that all lint violations are absent.
+
+**Conclusion:** The documented local validation suite, data and model quality gates, graph artifacts, frontend build, and baseline CI checks passed. This is evidence of validated project components, not proof that the platform is deployed or operating in production.
