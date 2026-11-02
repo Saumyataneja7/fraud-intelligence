@@ -127,3 +127,35 @@ def test_predict_service_failure_returns_503(monkeypatch):
     )
 
     assert response.status_code == 503
+
+
+def test_predict_success_returns_prediction_contract(monkeypatch):
+    from api.contracts.prediction import PredictionResponse
+    import api.main
+
+    expected = PredictionResponse(
+        transaction_id="txn_001",
+        prediction_probability=0.87,
+        prediction_label=1,
+        model_name="xgboost",
+        model_family="classical",
+    )
+
+    class FakeService:
+        def predict(self, transaction_id):
+            assert transaction_id == "txn_001"
+            return expected
+
+    monkeypatch.setattr(
+        api.main,
+        "prediction_service",
+        FakeService(),
+    )
+
+    response = client.post(
+        "/predict",
+        json={"transaction_id": "txn_001"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == expected.model_dump()
